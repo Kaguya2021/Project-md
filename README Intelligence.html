@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README Intelligence — Умный анализ документации проекта</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#09090b',
+                        cardBg: '#121216',
+                        cardHover: '#1a1a22',
+                        accentPurple: '#8b5cf6',
+                        accentBlue: '#3b82f6',
+                        accentGlow: 'rgba(139, 92, 246, 0.15)'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Highlight.js for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(18, 18, 22, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-panel-light {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        .glow-purple {
+            box-shadow: 0 0 40px -10px rgba(139, 92, 246, 0.3);
+        }
+        .glow-blue {
+            box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.3);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.5);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 4s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-darkBg text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300 selection:bg-purple-500 selection:text-white">
+
+    <!-- Background Ambient Glows -->
+    <div class="fixed top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow"></div>
+    <div class="fixed bottom-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" style="animation-delay: 2s;"></div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-darkBg/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="resetApp()">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/20 text-white font-bold text-xl">
+                    <i data-lucide="cpu" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">README Intelligence</span>
+                    <span class="hidden sm:inline-block ml-2 px-2 py-0.5 text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full">v1.0.0</span>
+                </div>
+            </div>
+
+            <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-600 dark:text-slate-400">
+                <button onclick="resetApp()" class="hover:text-purple-500 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="home" class="w-4 h-4"></i> Главная
+                </button>
+                <button onclick="openDocsModal()" class="hover:text-purple-500 transition-colors flex items-center gap-1.5">
+                    <i data-lucide="book-open" class="w-4 h-4"></i> Документация
+                </button>
+            </nav>
+
+            <div class="flex items-center space-x-3">
+                <button id="themeToggle" onclick="toggleTheme()" class="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-purple-500 transition-all shadow-sm" title="Переключить тему">
+                    <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+                    <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
+                </button>
+                <button onclick="loadDemoData()" class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-medium text-sm shadow-lg shadow-purple-500/25 transition-all">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i> Демо README
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+        <!-- VIEW 1: UPLOAD & INPUT SECTION -->
+        <div id="inputView" class="space-y-8">
+            <!-- Hero Section -->
+            <div class="text-center max-w-3xl mx-auto space-y-4 py-6">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold tracking-wide uppercase">
+                    <i data-lucide="zap" class="w-3.5 h-3.5"></i> Интеллектуальный анализатор репозиториев
+                </div>
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight">
+                    Узнай всё о своём <span class="bg-gradient-to-r from-purple-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">проекте</span>
+                </h1>
+                <p class="text-lg text-slate-600 dark:text-slate-400">
+                    Загрузи README.md и получи подробный технический разбор архитектуры, функций, технологий и структуры проекта за считанные секунды.
+                </p>
+            </div>
+
+            <!-- Input Tabs Selector -->
+            <div class="max-w-4xl mx-auto">
+                <div class="flex rounded-2xl bg-slate-200/60 dark:bg-slate-900/80 p-1.5 border border-slate-300 dark:border-slate-800 mb-6">
+                    <button onclick="switchTab('file')" id="tabFileBtn" class="flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 bg-white dark:bg-purple-600 text-slate-900 dark:text-white shadow-sm">
+                        <i data-lucide="file-up" class="w-4 h-4"></i> Загрузить файл
+                    </button>
+                    <button onclick="switchTab('editor')" id="tabEditorBtn" class="flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 hover:text-white">
+                        <i data-lucide="code" class="w-4 h-4"></i> Вставить Markdown
+                    </button>
+                </div>
+
+                <!-- Tab 1: File Upload Drag & Drop -->
+                <div id="fileTabContent" class="space-y-6">
+                    <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-purple-500 dark:hover:border-purple-500 rounded-3xl p-10 text-center transition-all cursor-pointer bg-white/50 dark:bg-cardBg/50 relative group">
+                        <input type="file" id="fileInput" accept=".md,.txt" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="handleFileSelect(event)">
+                        <div class="max-w-md mx-auto space-y-4 pointer-events-none">
+                            <div class="w-16 h-16 mx-auto rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+                                <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="font-bold text-lg">Перетащите README.md сюда</p>
+                                <p class="text-sm text-slate-500">или <span class="text-purple-400 underline font-medium">выберите файл</span> на компьютере</p>
+                            </div>
+                            <p class="text-xs text-slate-400">Поддерживаются файлы .md и .txt (до 2 МБ)</p>
+                        </div>
+                    </div>
+
+                    <!-- File Info Card (Hidden by default) -->
+                    <div id="fileInfoCard" class="hidden glass-panel dark:bg-cardBg rounded-2xl p-4 flex items-center justify-between border border-purple-500/30">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-3 rounded-xl bg-purple-500/10 text-purple-400">
+                                <i data-lucide="file-text" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h4 id="fileNameDisplay" class="font-bold text-sm">README.md</h4>
+                                <p id="fileSizeDisplay" class="text-xs text-slate-400">0 KB</p>
+                            </div>
+                        </div>
+                        <button onclick="removeLoadedFile()" class="p-2 text-slate-400 hover:text-red-400 transition-colors rounded-xl hover:bg-red-500/10">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Markdown Editor -->
+                <div id="editorTabContent" class="hidden space-y-4">
+                    <div class="glass-panel dark:bg-cardBg rounded-3xl p-4 border border-slate-300 dark:border-slate-800 shadow-xl">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-3 px-2">
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-slate-400">
+                                <i data-lucide="edit-3" class="w-4 h-4 text-purple-400"></i>
+                                <span>Markdown Редактор</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="pasteFromClipboard()" class="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-purple-500/20 hover:text-purple-300 text-xs font-medium transition-all flex items-center gap-1.5">
+                                    <i data-lucide="clipboard" class="w-3.5 h-3.5"></i> Вставить
+                                </button>
+                                <button onclick="clearEditor()" class="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-red-500/20 hover:text-red-300 text-xs font-medium transition-all flex items-center gap-1.5">
+                                    <i data-lucide="eraser" class="w-3.5 h-3.5"></i> Очистить
+                                </button>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <textarea id="markdownInput" rows="12" class="w-full bg-transparent font-mono text-sm p-3 focus:outline-none resize-y text-slate-800 dark:text-slate-200 placeholder-slate-500" placeholder="# Название проекта&#10;&#10;Описание проекта и его возможностей..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analyze Button Action Bar -->
+                <div class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <button onclick="loadDemoData()" class="w-full sm:w-auto px-6 py-3.5 rounded-2xl border border-slate-300 dark:border-slate-700 hover:border-purple-500 font-semibold text-sm transition-all flex items-center justify-center gap-2 text-slate-700 dark:text-slate-300 hover:text-purple-500">
+                        <i data-lucide="play-circle" class="w-4 h-4"></i> Загрузить демо-пример
+                    </button>
+                    <button onclick="startAnalysis()" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold text-base shadow-xl shadow-purple-500/25 transition-all flex items-center justify-center gap-2 group">
+                        <span>Анализировать README</span>
+                        <i data-lucide="arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: RESULTS DASHBOARD (Hidden initially) -->
+        <div id="resultsView" class="hidden space-y-8">
+            
+            <!-- Top Summary Bar -->
+            <div class="glass-panel dark:bg-cardBg rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-purple-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 relative z-10">
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Анализ завершен успешно
+                            </span>
+                            <span id="summarySectionsCountBadge" class="px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold">18 разделов найдено</span>
+                        </div>
+                        <h2 id="resProjectName" class="text-2xl sm:text-3xl font-extrabold tracking-tight">Название проекта</h2>
+                        <p id="resProjectDesc" class="text-slate-600 dark:text-slate-400 max-w-2xl text-sm leading-relaxed">Краткое описание проекта...</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button onclick="toggleRawSourceView()" id="rawToggleBtn" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:border-purple-500 font-medium text-xs transition-all flex items-center gap-2 bg-white/50 dark:bg-slate-900">
+                            <i data-lucide="code-2" class="w-4 h-4"></i> Исходный Markdown
+                        </button>
+                        <button onclick="exportReportHTML()" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:border-purple-500 font-medium text-xs transition-all flex items-center gap-2 bg-white/50 dark:bg-slate-900">
+                            <i data-lucide="download" class="w-4 h-4"></i> Экспорт HTML
+                        </button>
+                        <button onclick="resetApp()" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs transition-all flex items-center gap-2 shadow-lg shadow-purple-500/20">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Новый анализ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Quick Bar -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 text-center">
+                    <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80">
+                        <span id="statTechCount" class="block text-2xl font-extrabold text-purple-400">0</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Технологий & Языков</span>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80">
+                        <span id="statSectionsFound" class="block text-2xl font-extrabold text-blue-400">0/18</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Разделов документации</span>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80">
+                        <span id="statWordCount" class="block text-2xl font-extrabold text-emerald-400">0</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Слов в документе</span>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80">
+                        <span class="block text-2xl font-extrabold text-indigo-400">100%</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Клиентский анализ</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Bar Across Results -->
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-4 top-3.5 w-5 h-5 text-slate-400"></i>
+                <input type="text" id="resultSearchInput" oninput="filterCards()" placeholder="Поиск по результатам анализа (например: React, Docker, API, установка)..." class="w-full pl-12 pr-4 py-3 rounded-2xl glass-panel dark:bg-cardBg border border-slate-200 dark:border-slate-800 text-sm focus:outline-none focus:border-purple-500 transition-all text-slate-800 dark:text-slate-200 placeholder-slate-500">
+            </div>
+
+            <!-- Raw Source Container (Hidden by default) -->
+            <div id="rawSourceContainer" class="hidden glass-panel dark:bg-cardBg rounded-3xl p-6 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        <i data-lucide="file-code" class="w-5 h-5 text-purple-400"></i> Исходный текст README
+                    </h3>
+                    <button onclick="copyRawSource()" class="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-purple-500/20 text-xs font-medium transition-all flex items-center gap-1.5">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Скопировать исходник
+                    </button>
+                </div>
+                <pre class="bg-slate-950 p-4 rounded-2xl overflow-x-auto text-xs font-mono text-slate-300 max-h-96 border border-slate-800"><code id="rawSourceCodeBlock"></code></pre>
+            </div>
+
+            <!-- Interactive Cards Grid -->
+            <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards will be dynamically populated here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Detailed Modal View -->
+    <div id="detailModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass-panel dark:bg-cardBg rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col border border-purple-500/30 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/50 dark:bg-slate-900/50">
+                <div class="flex items-center space-x-3">
+                    <div id="modalIconContainer" class="p-3 rounded-2xl bg-purple-500/10 text-purple-400">
+                        <i data-lucide="info" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 id="modalTitle" class="text-xl font-bold">Название раздела</h3>
+                        <p id="modalSubtitle" class="text-xs text-slate-400">Детальный технический разбор</p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div id="modalBody" class="p-6 overflow-y-auto space-y-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                <!-- Modal content -->
+            </div>
+            <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/50 flex justify-end">
+                <button onclick="closeModal()" class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm transition-all shadow-lg shadow-purple-500/20">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 glass-panel dark:bg-slate-900 border border-purple-500/40 px-5 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 text-sm font-medium">
+        <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
+        <span id="toastText">Действие выполнено успешно</span>
+    </div>
+
+    <!-- Documentation Modal -->
+    <div id="docsModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass-panel dark:bg-cardBg rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-purple-500/30 shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h3 class="text-xl font-bold flex items-center gap-2">
+                    <i data-lucide="book-open" class="text-purple-400 w-5 h-5"></i> О документе и системе
+                </h3>
+                <button onclick="closeDocsModal()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 text-sm text-slate-600 dark:text-slate-300">
+                <p><strong>README Intelligence</strong> — это современный инструмент для глубокого клиентского анализа документации репозиториев (README.md).</p>
+                <p>Система автоматически сканирует заголовки, списки, блоки кода и структуру Markdown файла, выделяя 18 ключевых технических аспектов проекта:</p>
+                <ul class="list-disc pl-5 space-y-1 text-slate-500 dark:text-slate-400">
+                    <li>Архитектура и компоненты</li>
+                    <li>Технологический стек и зависимости</li>
+                    <li>Инструкции по установке и запуску</li>
+                    <li>Переменные окружения и конфигурация</li>
+                    <li>API, эндпоинты и команды</li>
+                    <li>Структура файлов и папок, БД, лицензия и авторы</li>
+                </ul>
+                <p class="text-xs text-purple-400 font-medium">Все операции производятся локально в вашем браузере с использованием Marked.js и Highlight.js.</p>
+            </div>
+            <div class="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                <button onclick="closeDocsModal()" class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm">Понятно</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 dark:border-slate-800 py-8 text-center text-xs text-slate-500 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p>© 2026 README Intelligence. SaaS Documentation Analyzer.</p>
+            <div class="flex items-center space-x-6">
+                <button onclick="openDocsModal()" class="hover:text-purple-400 transition-colors">Справка</button>
+                <button onclick="loadDemoData()" class="hover:text-purple-400 transition-colors">Демонстрация</button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initialize Lucide Icons
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        // Application State
+        let currentMarkdown = '';
+        let currentFileName = 'README.md';
+        let currentFileSize = '0 KB';
+        let parsedSectionsData = {};
+
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Initialize Theme from Storage
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        }
+
+        // Tabs switcher
+        function switchTab(tab) {
+            const fileBtn = document.getElementById('tabFileBtn');
+            const editorBtn = document.getElementById('tabEditorBtn');
+            const fileContent = document.getElementById('fileTabContent');
+            const editorContent = document.getElementById('editorTabContent');
+
+            if (tab === 'file') {
+                fileBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 bg-white dark:bg-purple-600 text-slate-900 dark:text-white shadow-sm";
+                editorBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 hover:text-white";
+                fileContent.classList.remove('hidden');
+                editorContent.classList.add('hidden');
+            } else {
+                editorBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 bg-white dark:bg-purple-600 text-slate-900 dark:text-white shadow-sm";
+                fileBtn.className = "flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 hover:text-white";
+                editorContent.classList.remove('hidden');
+                fileContent.classList.add('hidden');
+            }
+        }
+
+        // Handle File Selection
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            currentFileName = file.name;
+            currentFileSize = (file.size / 1024).toFixed(1) + ' KB';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentMarkdown = e.target.result;
+                document.getElementById('markdownInput').value = currentMarkdown;
+                
+                // Show File Info Card
+                document.getElementById('fileNameDisplay').textContent = currentFileName;
+                document.getElementById('fileSizeDisplay').textContent = currentFileSize;
+                document.getElementById('fileInfoCard').classList.remove('hidden');
+                showToast(`Файл "${currentFileName}" успешно загружен`);
+            };
+            reader.readAsText(file);
+        }
+
+        function removeLoadedFile() {
+            currentMarkdown = '';
+            currentFileName = 'README.md';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileInfoCard').classList.add('hidden');
+            document.getElementById('markdownInput').value = '';
+            showToast('Файл удален');
+        }
+
+        // Editor Actions
+        function pasteFromClipboard() {
+            navigator.clipboard.readText().then(text => {
+                document.getElementById('markdownInput').value = text;
+                showToast('Текст вставлен из буфера обмена');
+            }).catch(err => {
+                showToast('Ошибка доступа к буферу обмена');
+            });
+        }
+
+        function clearEditor() {
+            document.getElementById('markdownInput').value = '';
+            currentMarkdown = '';
+            showToast('Редактор очищен');
+        }
+
+        // Demo Data Loader
+        function loadDemoData() {
+            const demoMarkdown = `# CloudScale Enterprise Platform
+
+> Высокопроизводительная облачная платформа для автоматизации инфраструктуры и управления микросервисами на базе Kubernetes и Node.js.
+
+## 📌 Назначение и основные задачи
+Платформа предназначена для бесшовного развертывания, мониторинга и масштабирования распределенных веб-приложений с поддержкой автоматического восстановления и балансировки нагрузки.
+
+## 🚀 Используемые технологии
+- Backend: Node.js, Express, TypeScript, NestJS
+- Frontend: React, Tailwind CSS, Vite, Redux Toolkit
+- DevOps & Cloud: Docker, Kubernetes, Terraform, AWS ECS
+- Message Queue: Redis, RabbitMQ
+
+## 💻 Языки программирования
+- TypeScript (85%)
+- Python (10%)
+- Shell Script (5%)
+
+## 📦 Зависимости и библиотеки
+- \`express\` v4.18.2 — Веб-фреймворк
+- \`pg\` v8.11.0 — PostgreSQL клиент
+- \`ioredis\` v5.3.2 — Redis клиент
+- \`winston\` v3.10.0 — Логирование
+
+## ⚙️ Установка и настройка
+Для установки проекта на локальную машину выполните следующие команды в терминале:
+
+\`\`\`bash
+# Клонирование репозитория
+git clone https://github.com/enterprise/cloudscale-core.git
+cd cloudscale-core
+
+# Установка зависимостей
+npm install
+\`\`\`
+
+## 🏃 Инструкции запуска
+Запуск в режиме разработки:
+\`\`\`bash
+npm run dev
+\`\`\`
+
+Запуск в production окружении:
+\`\`\`bash
+npm run build
+npm start
+\`\`\`
+
+## 📁 Структура файлов и папок
+\`\`\`text
+cloudscale-core/
+├── src/
+│   ├── controllers/   # Контроллеры API
+│   ├── services/      # Бизнес-логика
+│   ├── models/        # Схемы баз данных
+│   └── index.ts       # Точка входа
+├── config/            # Конфигурационные файлы
+├── Dockerfile         # Docker сборка
+└── README.md          # Документация
+\`\`\`
+
+## ✨ Основные функции
+- Автоматическое масштабирование подов в Kubernetes.
+- Мониторинг метрик производительности в реальном времени.
+- Безопасное управление секретами через AWS Vault.
+- RESTful API и GraphQL интерфейсы.
+
+## 🔌 API и доступные команды
+- \`GET /api/v1/health\` — Проверка работоспособности системы.
+- \`POST /api/v1/deploy\` — Инициировать деплоймент версии.
+- \`GET /api/v1/metrics\` — Получить системные метрики.
+
+## 🔐 Переменные окружения (.env)
+Создайте файл \`.env\` в корне проекта со следующими параметрами:
+\`\`\`env
+PORT=4000
+DATABASE_URL=postgresql://user:password@localhost:5432/cloudscale
+REDIS_HOST=localhost
+JWT_SECRET=super_secret_key_2026
+\`\`\`
+
+## 🗄️ База данных
+В проекте используется **PostgreSQL 15** для хранения пользователей, настроек и логов аудита, а также **Redis** для кэширования сессий.
+
+## 🏛️ Архитектура проекта
+Архитектура построена на принципах микросервисного взаимодействия с асинхронной шиной сообщений RabbitMQ и шлюзом API Gateway.
+
+## 🔄 Принцип работы отдельных компонентов
+API Gateway принимает входящие HTTP запросы, валидирует JWT токены и маршрутизирует запросы к соответствующим микросервисам через внутреннюю сеть Docker.
+
+## 💻 Требования к системе
+- Node.js >= 18.0.0
+- PostgreSQL >= 15
+- Docker & Docker Compose
+- Минимум 4 GB RAM
+
+## 🛡️ Безопасность
+Проект проходит регулярный аудит безопасности через npm audit и SonarQube. Используется шифрование трафика TLS 1.3.
+
+## 📜 Лицензия
+Распространяется под лицензией MIT. Подробнее см. в файле LICENSE.
+
+## 👥 Авторы и разработчики
+- Главный архитектор: Алексей Смирнов (@asmirnov)
+- DevOps Lead: Елена Васильева (@e_vasilieva)
+`;
+
+            document.getElementById('markdownInput').value = demoMarkdown;
+            currentMarkdown = demoMarkdown;
+            switchTab('editor');
+            showToast('Демонстрационный README загружен');
+        }
+
+        // Toast Notification Function
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastText').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        // START ANALYSIS ENGINE
+        function startAnalysis() {
+            const editorText = document.getElementById('markdownInput').value.trim();
+            if (!editorText) {
+                showToast('Пожалуйста, введите или загрузите Markdown текст');
+                return;
+            }
+            currentMarkdown = editorText;
+
+            // Run Parsing Engine for 18 sections
+            parseMarkdownToSections(currentMarkdown);
+
+            // Switch UI views
+            document.getElementById('inputView').classList.add('hidden');
+            document.getElementById('resultsView').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('Анализ документации выполнен успешно');
+        }
+
+        function resetApp() {
+            document.getElementById('resultsView').classList.add('hidden');
+            document.getElementById('inputView').classList.remove('hidden');
+            document.getElementById('rawSourceContainer').classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Parsing Engine Implementation (Client-side JS extraction of 18 sections)
+        function parseMarkdownToSections(mdText) {
+            const fallback = "В README не указано";
+
+            // Helper to extract section content based on headers or keywords
+            function extractSection(keywords) {
+                const lines = mdText.split('\n');
+                let capturing = false;
+                let content = [];
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const lowerLine = line.toLowerCase();
+                    
+                    if (line.startsWith('#')) {
+                        if (capturing) {
+                            break;
+                        }
+                        if (keywords.some(kw => lowerLine.includes(kw))) {
+                            capturing = true;
+                            continue;
+                        }
+                    } else if (capturing) {
+                        content.push(line);
+                    }
+                }
+                
+                const res = content.join('\n').trim();
+                return res.length > 0 ? res : fallback;
+            }
+
+            // 1. Project Name
+            let projectName = "Проект без названия";
+            const h1Match = mdText.match(/^#\s+(.+)$/m);
+            if (h1Match) {
+                projectName = h1Match[1].trim();
+            }
+
+            // 2. Description
+            let description = fallback;
+            const lines = mdText.split('\n');
+            let descLines = [];
+            let foundH1 = false;
+            for (let line of lines) {
+                if (line.startsWith('# ')) {
+                    foundH1 = true;
+                    continue;
+                }
+                if (foundH1) {
+                    if (line.startsWith('#')) break;
+                    if (line.trim().length > 0) descLines.push(line.trim());
+                }
+            }
+            if (descLines.length > 0) {
+                description = descLines.slice(0, 3).join(' ');
+            }
+
+            // 3. Purpose
+            const purpose = extractSection(['назначение', 'цель', 'описание', 'purpose', 'about', 'introduction']);
+            
+            // 4. Technologies
+            const technologies = extractSection(['технолог', 'tech', 'stack', 'built with', 'инструменты']);
+
+            // 5. Programming Languages
+            const languages = extractSection(['язык', 'language', 'languages']);
+
+            // 6. Dependencies
+            const dependencies = extractSection(['зависимости', 'dependenc', 'libraries', 'библиотеки', 'packages']);
+
+            // 7. Installation & Setup
+            const installation = extractSection(['установк', 'install', 'setup', 'getting started', 'requirements']);
+
+            // 8. Running Instructions
+            const running = extractSection(['запуск', 'run', 'usage', 'использование', 'start']);
+
+            // 9. File & Folder Structure
+            const structure = extractSection(['структур', 'structure', 'файлы', 'files', 'tree', 'дерево']);
+
+            // 10. Core Features
+            const features = extractSection(['функцион', 'features', 'возможности', 'особенности']);
+
+            // 11. API & Commands
+            const api = extractSection(['api', 'commands', 'команды', 'endpoints', 'маршруты']);
+
+            // 12. Environment Variables
+            const envVars = extractSection(['env', 'переменные', 'конфигурац', 'configuration', 'environment']);
+
+            // 13. Database
+            const database = extractSection(['база данных', 'database', 'db', 'postgresql', 'mysql', 'mongodb', 'sql']);
+
+            // 14. Architecture
+            const architecture = extractSection(['архитектур', 'architecture', 'диаграмм', 'взаимодейств']);
+
+            // 15. Component Workflow
+            const workflow = extractSection(['принцип работы', 'workflow', 'компонент', 'логик']);
+
+            // 16. System Requirements
+            const requirements = extractSection(['требован', 'requirements', 'prerequisites', 'системные']);
+
+            // 17. License
+            const license = extractSection(['лиценз', 'license']);
+
+            // 18. Authors & Developers
+            const authors = extractSection(['автор', 'author', 'developer', 'contributors', 'разработчик']);
+
+            // Populate Parsed Data object
+            parsedSectionsData = {
+                projectName,
+                description,
+                purpose,
+                technologies,
+                languages,
+                dependencies,
+                installation,
+                running,
+                structure,
+                features,
+                api,
+                envVars,
+                database,
+                architecture,
+                workflow,
+                requirements,
+                license,
+                authors
+            };
+
+            // Count valid sections (not fallback)
+            let foundCount = Object.values(parsedSectionsData).filter(val => val !== fallback).length;
+            
+            // Count tech keywords
+            let techKeywordsCount = 0;
+            if (technologies !== fallback) {
+                techKeywordsCount = technologies.split(/[\n,-]/).filter(t => t.trim().length > 1).length;
+            } else {
+                techKeywordsCount = 4;
+            }
+
+            // Word count
+            let wordCount = mdText.split(/\s+/).length;
+
+            // Update Summary Header UI
+            document.getElementById('resProjectName').textContent = projectName;
+            document.getElementById('resProjectDesc').textContent = description;
+            document.getElementById('summarySectionsCountBadge').textContent = `${foundCount}/18 разделов найдено`;
+            document.getElementById('statTechCount').textContent = Math.max(techKeywordsCount, 3);
+            document.getElementById('statSectionsFound').textContent = `${foundCount}/18`;
+            document.getElementById('statWordCount').textContent = wordCount;
+            document.getElementById('rawSourceCodeBlock').textContent = mdText;
+
+            // Render Cards Grid
+            renderCardsGrid(parsedSectionsData);
+        }
+
+        // Render Interactive Cards
+        function renderCardsGrid(data) {
+            const grid = document.getElementById('cardsGrid');
+            grid.innerHTML = '';
+
+            const cardsConfig = [
+                { id: 'purpose', title: 'Обзор и назначение', icon: 'Compass', desc: data.purpose, color: 'from-purple-500/20 to-blue-500/20', textCol: 'text-purple-400' },
+                { id: 'architecture', title: 'Архитектура проекта', icon: 'Network', desc: data.architecture, color: 'from-blue-500/20 to-indigo-500/20', textCol: 'text-blue-400' },
+                { id: 'technologies', title: 'Технологический стек', icon: 'Cpu', desc: data.technologies, color: 'from-emerald-500/20 to-teal-500/20', textCol: 'text-emerald-400' },
+                { id: 'structure', title: 'Структура файлов', icon: 'FolderTree', desc: data.structure, color: 'from-amber-500/20 to-orange-500/20', textCol: 'text-amber-400' },
+                { id: 'installation', title: 'Установка и настройка', icon: 'DownloadCloud', desc: data.installation, color: 'from-violet-500/20 to-purple-500/20', textCol: 'text-violet-400' },
+                { id: 'running', title: 'Инструкции запуска', icon: 'PlaySquare', desc: data.running, color: 'from-rose-500/20 to-pink-500/20', textCol: 'text-rose-400' },
+                { id: 'envVars', title: 'Конфигурация и .env', icon: 'Sliders', desc: data.envVars, color: 'from-cyan-500/20 to-blue-500/20', textCol: 'text-cyan-400' },
+                { id: 'features', title: 'Функциональность', icon: 'Star', desc: data.features, color: 'from-yellow-500/20 to-amber-500/20', textCol: 'text-yellow-400' },
+                { id: 'api', title: 'API и Команды', icon: 'Terminal', desc: data.api, color: 'from-indigo-500/20 to-purple-500/20', textCol: 'text-indigo-400' },
+                { id: 'database', title: 'База данных', icon: 'Database', desc: data.database, color: 'from-teal-500/20 to-emerald-500/20', textCol: 'text-teal-400' },
+                { id: 'requirements', title: 'Системные требования', icon: 'ShieldCheck', desc: data.requirements, color: 'from-sky-500/20 to-indigo-500/20', textCol: 'text-sky-400' },
+                { id: 'authors', title: 'Лицензия и Авторы', icon: 'Award', desc: `${data.license}\n\n${data.authors}`, color: 'from-fuchsia-500/20 to-pink-500/20', textCol: 'text-fuchsia-400' }
+            ];
+
+            cardsConfig.forEach(card => {
+                const isAvailable = card.desc !== "В README не указано";
+                const snippet = card.desc.length > 120 ? card.desc.substring(0, 120) + '...' : card.desc;
+
+                const cardEl = document.createElement('div');
+                cardEl.className = "glass-panel dark:bg-cardBg rounded-3xl p-6 border border-slate-200 dark:border-slate-800 hover:border-purple-500/50 transition-all duration-300 flex flex-col justify-between group cursor-pointer hover:shadow-xl hover:shadow-purple-500/5";
+                cardEl.setAttribute('data-card-id', card.id);
+                cardEl.onclick = () => openDetailModal(card.title, card.desc, card.icon, card.textCol);
+
+                cardEl.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="p-3 rounded-2xl bg-gradient-to-br ${card.color} ${card.textCol} group-hover:scale-110 transition-transform">
+                                <i data-lucide="${card.icon.toLowerCase()}" class="w-6 h-6"></i>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${isAvailable ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'}">
+                                ${isAvailable ? 'Найдено' : 'Не указано'}
+                            </span>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100 group-hover:text-purple-400 transition-colors">${card.title}</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-3 font-mono leading-relaxed">${escapeHtml(snippet)}</p>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs font-medium text-purple-400">
+                        <span>Подробный разбор</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                `;
+                grid.appendChild(cardEl);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Search Filter across cards
+        function filterCards() {
+            const query = document.getElementById('resultSearchInput').value.toLowerCase();
+            const cards = document.querySelectorAll('#cardsGrid > div');
+            
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Toggle Raw Source View
+        function toggleRawSourceView() {
+            const container = document.getElementById('rawSourceContainer');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                document.getElementById('rawToggleBtn').classList.add('border-purple-500', 'text-purple-400');
+            } else {
+                container.classList.add('hidden');
+                document.getElementById('rawToggleBtn').classList.remove('border-purple-500', 'text-purple-400');
+            }
+        }
+
+        function copyRawSource() {
+            navigator.clipboard.writeText(currentMarkdown);
+            showToast('Исходный Markdown скопирован в буфер обмена');
+        }
+
+        // Detail Modal Handling
+        function openDetailModal(title, content, iconName, textColClass) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalSubtitle').textContent = `Полный технический анализ раздела "${title}"`;
+            
+            const iconContainer = document.getElementById('modalIconContainer');
+            iconContainer.className = `p-3 rounded-2xl bg-purple-500/10 ${textColClass}`;
+            iconContainer.innerHTML = `<i data-lucide="${iconName.toLowerCase()}" class="w-6 h-6"></i>`;
+
+            const modalBody = document.getElementById('modalBody');
+            
+            // Render content using marked.js
+            if (content === "В README не указано") {
+                modalBody.innerHTML = `
+                    <div class="text-center py-10 space-y-3">
+                        <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-500/10 text-slate-400 flex items-center justify-center">
+                            <i data-lucide="help-circle" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="font-bold text-base">Информация отсутствует</h4>
+                        <p class="text-xs text-slate-500">В загруженном файле README.md нет явных упоминаний данного раздела.</p>
+                    </div>
+                `;
+            } else {
+                modalBody.innerHTML = `
+                    <div class="flex justify-end mb-2">
+                        <button onclick="copyModalContent()" class="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-purple-500/20 text-xs font-medium transition-all flex items-center gap-1.5">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Скопировать текст
+                        </button>
+                    </div>
+                    <div class="prose dark:prose-invert max-w-none text-sm font-sans">${marked.parse(content)}</div>
+                `;
+            }
+
+            document.getElementById('detailModal').classList.remove('hidden');
+            document.getElementById('detailModal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+            document.getElementById('detailModal').classList.remove('flex');
+        }
+
+        function copyModalContent() {
+            const bodyText = document.getElementById('modalBody').innerText;
+            navigator.clipboard.writeText(bodyText);
+            showToast('Содержимое скопировано в буфер обмена');
+        }
+
+        // Documentation Modal
+        function openDocsModal() {
+            document.getElementById('docsModal').classList.remove('hidden');
+            document.getElementById('docsModal').classList.add('flex');
+        }
+
+        function closeDocsModal() {
+            document.getElementById('docsModal').classList.add('hidden');
+            document.getElementById('docsModal').classList.remove('flex');
+        }
+
+        // HTML Export Function
+        function exportReportHTML() {
+            const htmlContent = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отчет анализа: ${parsedSectionsData.projectName}</title>
+    <style>
+        body { font-family: Inter, sans-serif; background: #09090b; color: #f8fafc; padding: 40px; line-height: 1.6; max-width: 900px; margin: 0 auto; }
+        h1 { color: #a855f7; border-bottom: 2px solid #27272a; padding-bottom: 15px; }
+        h2 { color: #3b82f6; margin-top: 30px; }
+        .card { background: #121216; border: 1px solid #27272a; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+        pre, code { background: #18181b; padding: 12px; border-radius: 8px; font-family: monospace; overflow-x: auto; color: #e4e4e7; }
+    </style>
+</head>
+<body>
+    <h1>📋 Отчет анализа: ${parsedSectionsData.projectName}</h1>
+    <p><strong>Описание:</strong> ${parsedSectionsData.description}</p>
+    <hr style="border-color: #27272a; margin: 20px 0;">
+    <div class="card"><h2>📌 Назначение</h2><p>${parsedSectionsData.purpose}</p></div>
+    <div class="card"><h2>🚀 Технологии</h2><pre>${parsedSectionsData.technologies}</pre></div>
+    <div class="card"><h2>⚙️ Установка</h2><pre>${parsedSectionsData.installation}</pre></div>
+    <div class="card"><h2>🏃 Запуск</h2><pre>${parsedSectionsData.running}</pre></div>
+    <div class="card"><h2>📁 Структура</h2><pre>${parsedSectionsData.structure}</pre></div>
+    <div class="card"><h2>🔌 API</h2><pre>${parsedSectionsData.api}</pre></div>
+    <footer style="margin-top: 40px; text-align: center; color: #71717a; font-size: 12px;">Сгенерировано с помощью README Intelligence (2026)</footer>
+</body>
+</html>`;
+
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${parsedSectionsData.projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_report.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('HTML отчет успешно экспортирован');
+        }
+
+        // Helper escape function
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+</body>
+</html>
